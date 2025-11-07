@@ -1,31 +1,64 @@
-# Smart Study Companion
+# 🧠 StudySage AI — Smart Study Companion
 
-This repository contains a Streamlit app that predicts likely exam topics by analyzing past-year question papers and an optional syllabus using TF-IDF and trend weighting.
+**StudySage AI** is an intelligent study assistant built by **ANURAG SAINI THE BAKU**.  
+It uses **Natural Language Processing (NLP)** and **Machine Learning** to analyze past-year question papers and **predict the most important exam topics**.
 
-## Files in this package
-- `app.py` - Streamlit application (main file)
-- `requirements.txt` - Python dependencies
-- `sample_docs/` - small set of example .txt files to demo the app
-- `README.md` - this file
+🎓 **Official Live App:**  
+🔗 [https://studysage-ai-zghwvw27phgne94ludtnhe.streamlit.app/](https://studysage-ai-zghwvw27phgne94ludtnhe.streamlit.app/)
 
-## How to run locally
-1. Create a Python environment and install dependencies:
-```bash
-pip install -r requirements.txt
-```
+---
 
-2. Run Streamlit:
-```bash
-streamlit run app.py
-```
+## 🚀 **Project Overview**
 
-3. Open the URL shown by Streamlit (usually http://localhost:8501). Upload your past question papers (PDF or TXT) and an optional syllabus, then press **Analyze**.
+StudySage AI helps students **learn smarter, not harder** by identifying the topics that are **most likely to appear** in future exams — based on trends and frequency patterns found in past papers.
 
-## Deploy to Streamlit Cloud
-1. Create a new GitHub repo with these files.
-2. In Streamlit Cloud, link your GitHub repo and deploy (Streamlit will install `requirements.txt`).
+### ✨ **Key Features**
+- 📄 Upload **past question papers** (PDF or TXT)
+- 📘 Optionally upload **syllabus** for context-based topic filtering
+- 🧠 Analyze documents using **TF-IDF + trend weighting**
+- 🔮 Predict and rank **important topics** by recurrence and significance
+- 📊 Visualize top topics with dynamic bar charts
+- ⬇️ Download results as CSV for future revision
+- 🧩 (Optional) Explore advanced **NMF topic modeling**
 
-## Notes
-- For better results, upload at least 3-5 past papers and include year information in filenames (e.g., `paper_2019.pdf`).
-- If PDFs extract poorly, convert to text before upload or use OCR.
-- This package is prepared for ANURAG SAINI THE BAKU — customize the UI or scoring logic as desired.
+---
+
+## 🧩 **How It Works**
+
+1. **Upload Files**  
+   Add your past question papers (PDF or TXT). Optionally, include your syllabus.
+
+2. **Processing**  
+   The AI cleans and tokenizes the text, removing stopwords and noise.
+
+3. **Topic Analysis**  
+   Using **TF-IDF** and **trend scoring**, it ranks the most frequent and contextually important terms.
+
+4. **Prediction Output**  
+   Displays the most likely topics for upcoming exams, both in table and graph format.
+
+5. **Download & Revise**  
+   Export your results as CSV or copy them directly for your study notes.
+
+---
+
+## 🧠 **Technologies Used**
+
+| Category | Technology |
+|-----------|-------------|
+| Programming | Python |
+| Frontend | Streamlit |
+| NLP | TF-IDF (Scikit-learn) |
+| ML | Trend Weighting + Topic Modeling (NMF) |
+| Visualization | Matplotlib |
+| Document Parsing | PyPDF2 |
+
+---
+
+## 🧪 **Installation (Run Locally)**
+
+1. Clone this repository or download the project zip.
+2. Open the folder in your terminal or VS Code.
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
