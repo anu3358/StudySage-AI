@@ -1,0 +1,1 @@
+Neural networks perceptron backpropagation layers activation functions cnn rnn deep learning applications
