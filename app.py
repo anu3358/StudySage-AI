@@ -1,61 +1,59 @@
 # ============================================================
-# 📚 StudySage AI — Smart Study Companion
-# Author: ANURAG SAINI THE BAKU
-# Description: Analyze past question papers using NLP (TF-IDF)
-#              to predict important exam topics intelligently.
+# 🧠 StudySage AI — Smart Study Companion (NLTK-free tokenization)
+# Author: ANURAG SAINI THE BAKU (adapted)
 # ============================================================
 
 import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import re
+from io import BytesIO
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.decomposition import NMF
-import nltk
-import re
 from PyPDF2 import PdfReader
 
-# ------------------ Setup ------------------
-nltk.download('punkt', quiet=True)
-nltk.download('stopwords', quiet=True)
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
+st.set_page_config(page_title="StudySage AI", layout="wide")
 
-STOPWORDS = set(stopwords.words('english'))
+# ------------------ Lightweight stopwords (small reliable set) ------------------
+STOPWORDS = {
+    "a","about","above","after","again","against","all","am","an","and","any","are","as","at",
+    "be","because","been","before","being","below","between","both","but","by",
+    "could","did","do","does","doing","down","during",
+    "each","few","for","from","further",
+    "had","has","have","having","he","her","here","hers","herself","him","himself","his","how",
+    "i","if","in","into","is","it","its","itself",
+    "just",
+    "me","more","most","my","myself",
+    "no","nor","not","now",
+    "of","off","on","once","only","or","other","ought","our","ours","ourselves","out","over","own",
+    "same","she","should","so","some","such",
+    "than","that","the","their","theirs","them","themselves","then","there","these","they","this","those","through","to","too",
+    "under","until","up",
+    "very",
+    "was","we","were","what","when","where","which","while","who","whom","why","with","would",
+    "you","your","yours","yourself","yourselves"
+}
 
-st.set_page_config(page_title='StudySage AI', layout='wide')
+# ------------------ Helper functions ------------------
 
-
-# ------------------ Helper Functions ------------------
 def read_pdf(file) -> str:
-    """Extracts text from a PDF file."""
+    """Extract text from a PDF file object or path-like."""
     try:
         reader = PdfReader(file)
-        text = []
+        pages = []
         for page in reader.pages:
-            page_text = page.extract_text()
-            if page_text:
-                text.append(page_text)
-        return "\n".join(text)
+            text = page.extract_text()
+            if text:
+                pages.append(text)
+        return "\n".join(pages)
     except Exception:
         return ""
 
-
-def clean_text(text: str) -> str:
-    """Cleans and tokenizes raw text."""
-    if text is None:
-        return ""
-    text = text.replace("\n", " ").lower()
-    text = re.sub(r"[^a-z0-9\s]", " ", text)
-    tokens = word_tokenize(text)
-    tokens = [t for t in tokens if t not in STOPWORDS and len(t) > 2 and not t.isdigit()]
-    return " ".join(tokens)
-
-
 def extract_text_from_upload(uploaded_file):
-    """Handles both PDF and TXT uploads."""
-    fname = uploaded_file.name.lower()
-    if fname.endswith(".pdf"):
+    """Return text for uploaded file (PDF or TXT)"""
+    name = uploaded_file.name.lower()
+    if name.endswith(".pdf"):
         return read_pdf(uploaded_file)
     else:
         try:
@@ -63,17 +61,32 @@ def extract_text_from_upload(uploaded_file):
         except Exception:
             return str(uploaded_file.getvalue())
 
+def simple_tokenize(text):
+    """Tokenize with regex, return lowercase alpha tokens length>=3."""
+    if text is None:
+        return []
+    # keep only letters and numbers and spaces; replace others with space
+    text = re.sub(r"[^a-zA-Z0-9\s]", " ", text)
+    text = text.lower()
+    tokens = re.findall(r"\b[a-z]{3,}\b", text)  # words with only letters and length>=3
+    return tokens
+
+def clean_text(text):
+    """Clean text and remove stopwords using regex-based tokenization."""
+    tokens = simple_tokenize(text)
+    tokens = [t for t in tokens if t not in STOPWORDS]
+    return " ".join(tokens)
 
 def compute_topic_scores(docs, years=None, top_n_terms=50):
-    """Computes topic importance using TF-IDF and trend weighting."""
-    vect = TfidfVectorizer(ngram_range=(1, 2), max_features=2000)
+    """Compute TF-IDF based topic ranking with optional trend weighting."""
+    vect = TfidfVectorizer(ngram_range=(1,2), max_features=2000)
     X = vect.fit_transform(docs)
     feature_names = np.array(vect.get_feature_names_out())
 
     tfidf_mean = np.asarray(X.mean(axis=0)).ravel()
     term_counts = np.asarray((X > 0).sum(axis=0)).ravel()
 
-    # Trend component
+    # trend score
     if years is not None and len(years) == len(docs):
         yr_arr = np.array(years).astype(float)
         if yr_arr.max() == yr_arr.min():
@@ -88,6 +101,7 @@ def compute_topic_scores(docs, years=None, top_n_terms=50):
         term_year_score = np.ones_like(tfidf_mean)
 
     freq_norm = term_counts / (term_counts.max() if term_counts.max() > 0 else 1)
+
     composite = (
         0.5 * (tfidf_mean / (tfidf_mean.max() if tfidf_mean.max() > 0 else 1))
         + 0.3 * freq_norm
@@ -104,57 +118,54 @@ def compute_topic_scores(docs, years=None, top_n_terms=50):
     })
     return results, vect
 
-
 # ------------------ Streamlit UI ------------------
+
 st.title("🧠 StudySage AI — Smart Study Companion")
 st.markdown(
     """
-Welcome to **StudySage AI**, your intelligent exam preparation assistant.
-Upload your **past question papers (PDF/TXT)** and optionally your **syllabus**.
-The app will analyze them using **Natural Language Processing (TF-IDF)** and
-predict the **most important topics** likely to appear in upcoming exams.
+Upload past question papers (PDF/TXT) and an optional syllabus.
+StudySage AI analyzes historical papers using TF-IDF + trend-weighting
+to predict which topics are most likely to appear in future exams.
 """
 )
 
-# Sidebar Controls
 with st.sidebar:
     st.header("⚙️ Upload & Settings")
-    uploaded_files = st.file_uploader(
-        "Upload past question papers (PDF/TXT)", accept_multiple_files=True
-    )
+    uploaded_files = st.file_uploader("Upload past question papers (PDF/TXT)", accept_multiple_files=True)
     syllabus_file = st.file_uploader("Upload syllabus (optional)")
-    use_years = st.checkbox("Assign years to each file", value=True)
-    top_n = st.slider("Number of top topics to show", 5, 50, 10)
-    use_nmf = st.checkbox("Show advanced topic modeling (NMF)", value=False)
+    use_years = st.checkbox("Assign years to each file (detect from filename)", value=True)
+    top_n = st.slider("Number of top topics to show", min_value=5, max_value=50, value=10)
+    use_nmf = st.checkbox("Show NMF topic model (experimental)", value=False)
 
-# Default Demo Data
+# Fallback demo docs
 if not uploaded_files:
-    st.info("No uploads detected — using demo data for preview.")
+    st.info("No files uploaded — showing demo documents. Upload your own papers for real results.")
     docs = [
-        "Machine learning basics classification regression supervised learning model evaluation accuracy precision recall",
-        "Regression models linear regression multivariate regression error metrics mse rmse r2",
-        "Neural networks perceptron backpropagation layers activation functions cnn rnn deep learning applications",
-        "Feature engineering scaling normalization encoding missing values categorical features one hot encoding data preprocessing",
+        "machine learning basics classification regression supervised learning model evaluation accuracy precision recall",
+        "regression models linear regression multivariate regression error metrics mse rmse r2",
+        "neural networks perceptron backpropagation cnn rnn deep learning applications",
+        "feature engineering scaling normalization encoding missing values categorical features one hot encoding"
     ]
     years = [2018, 2019, 2021, 2024]
 else:
-    docs, years = [], []
+    docs = []
+    years = []
+    filenames = []
     for f in uploaded_files:
-        text = extract_text_from_upload(f)
-        docs.append(text)
+        filenames.append(f.name)
+        txt = extract_text_from_upload(f)
+        docs.append(txt)
         if use_years:
             m = re.search(r"(19|20)\d{2}", f.name)
             years.append(int(m.group()) if m else None)
         else:
             years.append(None)
 
-    # Ask user for manual mapping if year not detected
+    # If years missing, let user map
     if use_years and any(y is None for y in years):
-        st.subheader("Map filenames to years")
-        default_map = "\n".join([f"{f.name}: {2020+i}" for i, f in enumerate(uploaded_files)])
-        mapping_text = st.text_area(
-            "Enter filename:year (one per line)", value=default_map, height=120
-        )
+        st.subheader("Map filenames to years (filename:year)")
+        default_map = "\n".join([f"{uploaded_files[i].name}: {2020+i}" for i in range(len(uploaded_files))])
+        mapping_text = st.text_area("Enter mapping lines", value=default_map, height=160)
         name2year = {}
         for line in mapping_text.splitlines():
             if ":" in line:
@@ -163,20 +174,19 @@ else:
                     name2year[name.strip()] = int(re.sub("[^0-9]", "", yr))
                 except:
                     name2year[name.strip()] = 2020
-        years = [name2year.get(f.name, years[i] if years[i] else 2020) for i, f in enumerate(uploaded_files)]
+        years = [name2year.get(uploaded_files[i].name, years[i] if years[i] else 2020) for i in range(len(uploaded_files))]
 
-# Load syllabus if provided
+# Syllabus
 syll_text = ""
 if syllabus_file:
-    sy_text = extract_text_from_upload(syllabus_file)
-    syll_text = clean_text(sy_text)
+    syll_text_raw = extract_text_from_upload(syllabus_file)
+    syll_text = clean_text(syll_text_raw)
 
-# ------------------ Analysis Section ------------------
 if st.button("🔍 Analyze Now"):
     if not docs:
         st.error("Please upload at least one document.")
     else:
-        with st.spinner("Processing..."):
+        with st.spinner("Analyzing..."):
             cleaned_docs = [clean_text(d) for d in docs]
             if syll_text:
                 cleaned_docs_with_syllabus = cleaned_docs + [syll_text]
@@ -195,8 +205,7 @@ if st.button("🔍 Analyze Now"):
 
             results = results.sort_values("final_score", ascending=False).reset_index(drop=True)
 
-            # Display results
-            st.success("Analysis Complete ✅")
+            st.success("Analysis complete ✅")
             st.subheader("📊 Top Predicted Topics")
             display_df = results[["term", "final_score", "tfidf", "doc_frequency", "trend_score"]].head(top_n)
             display_df.columns = ["Topic", "Score", "Avg TF-IDF", "Doc Frequency", "Trend"]
@@ -208,7 +217,6 @@ if st.button("🔍 Analyze Now"):
             ax.set_xlabel("Predicted Importance Score")
             st.pyplot(fig)
 
-            # Download CSV
             st.download_button(
                 "⬇️ Download Topics CSV",
                 data=results.to_csv(index=False).encode("utf-8"),
@@ -216,21 +224,19 @@ if st.button("🔍 Analyze Now"):
                 mime="text/csv",
             )
 
-            # Text output
-            st.subheader("📝 Top Topics Summary")
-            st.text_area("Copy-ready topic list", "\n".join(results["term"].head(top_n)), height=200)
+            st.subheader("📝 Copy-ready Topic List")
+            st.text_area("Top topics", "\n".join(results["term"].head(top_n)), height=200)
 
-            # Optional Topic Modeling
             if use_nmf:
-                st.subheader("🧩 NMF Topic Modeling (Experimental)")
-                nmf_vect = TfidfVectorizer(max_features=2000, ngram_range=(1, 2))
+                st.subheader("🧩 NMF Topic Modeling (experimental)")
+                nmf_vect = TfidfVectorizer(max_features=2000, ngram_range=(1,2))
                 Xnmf = nmf_vect.fit_transform(cleaned_docs)
                 n_topics = st.slider("Number of NMF topics", 2, 10, 5)
                 nmf = NMF(n_components=n_topics, random_state=42)
-                H = nmf.fit_transform(Xnmf)
+                nmf.fit(Xnmf)
                 feature_names = nmf_vect.get_feature_names_out()
-                for topic_idx, topic in enumerate(nmf.components_):
-                    top_features = [feature_names[i] for i in topic.argsort()[:-11:-1]]
+                for topic_idx, comp in enumerate(nmf.components_):
+                    top_features = [feature_names[i] for i in comp.argsort()[:-11:-1]]
                     st.write(f"**Topic {topic_idx + 1}:** " + ", ".join(top_features))
 
 st.markdown("---")
